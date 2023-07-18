@@ -1,0 +1,79 @@
+version: '3.7'
+
+networks:
+    mall:
+        driver: bridge
+
+services:
+  mysql:
+    container_name: mysql
+    image: mysql:latest
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=mall_db
+      - MYSQL_USER=mall
+      - MYSQL_PASSWORD=123456
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./config/sql:/docker-entrypoint-initdb.d/
+    ports:
+      - "3306:3306"
+
+  redis:
+    container_name: redis
+    image: redis:latest
+    restart: always
+    environment:
+      - REDIS_PASSWORD=123456
+      - ALLOW_EMPTY_PASSWORD=no
+    volumes:
+      - /usr/local/redis:/usr/local/redis
+    ports:
+      - "6379:6379"
+
+
+  elasticsearch:
+      image: elasticsearch:8.4.2
+      container_name: elasticsearch
+      environment:
+          bootstrap.memory_lock: "true"
+          ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+          discovery.type: single-node
+          ingest.geoip.downloader.enabled: "false"
+          TZ: Asia/Shanghai
+          xpack.security.enabled: "false"
+      healthcheck:
+          test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"] #⼼跳检测，成功之后不再执⾏后⾯的退出
+          interval: 60s #⼼跳检测间隔周期
+          timeout: 10s
+          retries: 3
+          start_period: 60s #⾸次检测延迟时间
+      ulimits:
+          memlock:
+              soft: -1
+              hard: -1
+      volumes:
+          - /usr/local/elasticsearch/data:/usr/local/elasticsearch/data
+          - /usr/local/elasticsearch/config/es/config:/usr/local/elasticsearch/config
+      ports:
+          - "9200:9200"
+      restart: always
+      networks:
+          - mall
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"  # AMQP 端口
+      - "15672:15672"  # 管理界面端口
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest  # 设置 RabbitMQ 默认用户名
+      - RABBITMQ_DEFAULT_PASS=guest  # 设置 RabbitMQ 默认密码
+    networks:
+      - mall
+
+
+
+
